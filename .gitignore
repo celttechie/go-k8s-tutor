@@ -1,0 +1,17 @@
+# Binaries & build artifacts
+/go-k8s-tutor
+*.exe
+*.test
+*.out
+
+# Local cluster credentials & environment files (NEVER commit)
+*.kubeconfig
+kubeconfig*
+.env
+.env.*
+local/
+
+# Editor / OS
+.DS_Store
+.vscode/
+.idea/
