@@ -1,0 +1,29 @@
+name: CI
+
+on:
+  push:
+    branches: [main, solutions]
+  pull_request:
+    branches: [main, solutions]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Vet and compile starter modules (main branch)
+        if: github.ref_name == 'main'
+        run: |
+          go vet ./modules/01_structs_pointers_tags/... ./modules/03_context_and_errors/... ./modules/04_client_go/... ./modules/05_controller_runtime/...
+          go test -run=^$ ./modules/01_structs_pointers_tags/... ./modules/03_context_and_errors/... ./modules/04_client_go/... ./modules/05_controller_runtime/...
+
+      - name: Vet and run all module tests (solutions branch)
+        if: github.ref_name == 'solutions'
+        run: |
+          go vet ./...
+          go test -v ./...

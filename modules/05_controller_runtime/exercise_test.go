@@ -84,6 +84,52 @@ func TestReconcileAddsFinalizerAndCreatesMirror(t *testing.T) {
 	}
 }
 
+func TestReconcileUpdatesMirrorOnSourceChange(t *testing.T) {
+	ctx := context.Background()
+	scheme := newTestScheme(t)
+
+	src := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:       "vm-defaults",
+			Namespace:  "default",
+			UID:        types.UID("source-uid-123"),
+			Finalizers: []string{SyncFinalizer},
+		},
+		Data: map[string]string{"os": "rocky9", "cpus": "2"},
+	}
+
+	c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(src).Build()
+	r := &ConfigSyncReconciler{Client: c, Scheme: scheme}
+
+	req := ctrl.Request{NamespacedName: types.NamespacedName{Namespace: "default", Name: "vm-defaults"}}
+	if _, err := r.Reconcile(ctx, req); err != nil {
+		t.Fatalf("initial Reconcile failed: %v", err)
+	}
+
+	// Simulate user updating the source ConfigMap
+	var latest corev1.ConfigMap
+	if err := c.Get(ctx, req.NamespacedName, &latest); err != nil {
+		t.Fatalf("failed to get source ConfigMap: %v", err)
+	}
+	latest.Data["cpus"] = "4"
+	latest.Data["memory"] = "8Gi"
+	if err := c.Update(ctx, &latest); err != nil {
+		t.Fatalf("failed to update source ConfigMap: %v", err)
+	}
+
+	if _, err := r.Reconcile(ctx, req); err != nil {
+		t.Fatalf("update Reconcile failed: %v", err)
+	}
+
+	var mirror corev1.ConfigMap
+	if err := c.Get(ctx, types.NamespacedName{Namespace: "default", Name: "vm-defaults-mirror"}, &mirror); err != nil {
+		t.Fatalf("failed to get mirror ConfigMap: %v", err)
+	}
+	if !maps.Equal(mirror.Data, latest.Data) {
+		t.Fatalf("expected mirror Data %v after source update, got %v", latest.Data, mirror.Data)
+	}
+}
+
 func TestReconcileRemovesFinalizerOnDelete(t *testing.T) {
 	ctx := context.Background()
 	scheme := newTestScheme(t)

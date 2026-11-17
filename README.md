@@ -23,5 +23,5 @@ Open this folder in your AI IDE. The included [`AGENTS.md`](./AGENTS.md) configu
    ```
 
 ## Prerequisites
-* Go 1.24+ (`go version`)
+* Go 1.26+ (`go version`)
 * Optional for Module 4+: a local Kubernetes cluster (`kind`, `k3s`, `minikube`) with `$KUBECONFIG` set.

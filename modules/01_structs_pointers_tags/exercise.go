@@ -31,6 +31,10 @@ type VirtualMachine struct {
 // - Kind: "VirtualMachine"
 // - Metadata.Name and Metadata.Namespace set
 // - Spec.Memory set, Spec.CPUs set to a pointer to cpus, and Spec.Running left nil (unset).
+//
+// Note: This exercise returns a VirtualMachine value for simplicity; in real
+// client-go and controller-runtime code, API objects are almost always passed
+// as pointers (*VirtualMachine) so they satisfy client.Object and avoid copying.
 func NewVirtualMachine(name, namespace string, cpus int32, memory string) VirtualMachine {
 	// TODO: Implement this function.
 	// Hint: In Go, you can take the address of a local variable (&cpus) or use a helper.

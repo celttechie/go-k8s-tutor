@@ -32,19 +32,19 @@ type ConfigSyncReconciler struct {
 // 2. Finalizer handling:
 //    - If !cm.DeletionTimestamp.IsZero():
 //        If controllerutil.ContainsFinalizer(&cm, SyncFinalizer):
+//          // In a real operator, run external cleanup (e.g., cloud/storage) here first.
 //          Remove it with controllerutil.RemoveFinalizer(&cm, SyncFinalizer),
 //          call r.Client.Update(ctx, &cm), and return ctrl.Result{}, err.
 //        Otherwise return ctrl.Result{}, nil.
 //    - If !controllerutil.ContainsFinalizer(&cm, SyncFinalizer):
 //        Add it with controllerutil.AddFinalizer(&cm, SyncFinalizer),
 //        call r.Client.Update(ctx, &cm), and if err != nil return ctrl.Result{}, err.
-// 3. Ensure the mirror ConfigMap ("<cm.Name>-mirror" in cm.Namespace) exists:
-//    - Try r.Client.Get(ctx, types.NamespacedName{Namespace: cm.Namespace, Name: cm.Name + "-mirror"}, &mirror).
-//    - If apierrors.IsNotFound(err):
-//        Build a new corev1.ConfigMap with Name: cm.Name + "-mirror", Namespace: cm.Namespace,
-//        Data: maps.Clone(cm.Data), set owner reference via
-//        controllerutil.SetControllerReference(&cm, &mirror, r.Scheme),
-//        and call r.Client.Create(ctx, &mirror).
+// 3. Create or update the mirror ConfigMap ("<cm.Name>-mirror" in cm.Namespace):
+//    - Construct mirror := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: cm.Name + "-mirror", Namespace: cm.Namespace}}
+//    - Use controllerutil.CreateOrUpdate(ctx, r.Client, mirror, func() error { ... })
+//      Inside the mutate function:
+//        - Set mirror.Data = maps.Clone(cm.Data)
+//        - Call controllerutil.SetControllerReference(&cm, mirror, r.Scheme)
 //    - Return ctrl.Result{}, err.
 func (r *ConfigSyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	// TODO: Implement the reconciliation loop described above.
@@ -52,7 +52,14 @@ func (r *ConfigSyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	_ = apierrors.IsNotFound
 	_ = metav1.ObjectMeta{}
 	_ = types.NamespacedName{}
-	_ = controllerutil.AddFinalizer
+	_ = controllerutil.CreateOrUpdate
 	_ = corev1.ConfigMap{}
 	return ctrl.Result{}, nil
+}
+
+// SetupWithManager registers ConfigSyncReconciler with the controller-runtime Manager,
+// watching primary ConfigMaps (For) and their owned mirror ConfigMaps (Owns).
+func (r *ConfigSyncReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	// TODO: Return ctrl.NewControllerManagedBy(mgr).For(&corev1.ConfigMap{}).Owns(&corev1.ConfigMap{}).Complete(r)
+	return nil
 }
