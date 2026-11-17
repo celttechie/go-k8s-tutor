@@ -25,10 +25,12 @@ func (e *APIError) Error() string {
 // and wraps any returned error with context ("fetch failed: %w").
 // Always defer cancel() so timer resources aren't leaked.
 func FetchWithTimeout(ctx context.Context, timeout time.Duration, fn func(context.Context) error) error {
-	// TODO: Create a timeout context with context.WithTimeout(ctx, timeout) and defer cancel().
-	// Call fn(timeoutCtx) and wrap any non-nil error with fmt.Errorf("fetch failed: %w", err).
-	_ = context.WithTimeout
-	_ = fmt.Errorf
+	timeoutCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	if err := fn(timeoutCtx); err != nil {
+		return fmt.Errorf("fetch failed: %w", err)
+	}
 	return nil
 }
 
@@ -36,9 +38,11 @@ func FetchWithTimeout(ctx context.Context, timeout time.Duration, fn func(contex
 // whose StatusCode is 404.
 // This mirrors Kubernetes' apierrors.IsNotFound(err) pattern used in reconcilers.
 func IsIgnorableNotFound(err error) bool {
-	// TODO: Use errors.Is for ErrNotFound and errors.As for *APIError.
-	_ = errors.Is
-	return false
+	if errors.Is(err, ErrNotFound) {
+		return true
+	}
+	var apiErr *APIError
+	return errors.As(err, &apiErr) && apiErr.StatusCode == 404
 }
 
 // CheckNamespacesConcurrently runs checkFn(ctx, ns) concurrently for every namespace
@@ -49,8 +53,22 @@ func CheckNamespacesConcurrently(
 	namespaces []string,
 	checkFn func(context.Context, string) error,
 ) map[string]error {
-	// TODO: Launch one goroutine per namespace, track completion with sync.WaitGroup,
-	// protect map writes with sync.Mutex, and record non-nil errors.
-	_ = sync.WaitGroup{}
-	return map[string]error{}
+	errs := make(map[string]error)
+	var mu sync.Mutex
+	var wg sync.WaitGroup
+
+	for _, ns := range namespaces {
+		wg.Add(1)
+		go func(namespace string) {
+			defer wg.Done()
+			if err := checkFn(ctx, namespace); err != nil {
+				mu.Lock()
+				errs[namespace] = err
+				mu.Unlock()
+			}
+		}(ns)
+	}
+
+	wg.Wait()
+	return errs
 }

@@ -20,14 +20,19 @@ type SimpleVM struct {
 	Name      string
 }
 
-// TODO: Implement GetName() and GetNamespace() on *SimpleVM so *SimpleVM satisfies Resource.
+func (v *SimpleVM) GetName() string {
+	return v.Name
+}
+
+func (v *SimpleVM) GetNamespace() string {
+	return v.Namespace
+}
 
 // CheckVMExists returns true if ClusterReader finds the VM, or an error if lookup fails.
 func CheckVMExists(reader ClusterReader, namespace, name string) (bool, error) {
-	// TODO: Call reader.GetVM(namespace, name).
-	// If err != nil, wrap and return it: fmt.Errorf("checking vm %s/%s: %w", namespace, name, err)
-	// If res == nil, return false, nil.
-	// Otherwise return true, nil.
-	_ = fmt.Errorf
-	return false, nil
+	res, err := reader.GetVM(namespace, name)
+	if err != nil {
+		return false, fmt.Errorf("checking vm %s/%s: %w", namespace, name, err)
+	}
+	return res != nil, nil
 }

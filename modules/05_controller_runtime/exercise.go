@@ -8,7 +8,6 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -47,19 +46,49 @@ type ConfigSyncReconciler struct {
 //        - Call controllerutil.SetControllerReference(&cm, mirror, r.Scheme)
 //    - Return ctrl.Result{}, err.
 func (r *ConfigSyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	// TODO: Implement the reconciliation loop described above.
-	_ = maps.Clone[map[string]string]
-	_ = apierrors.IsNotFound
-	_ = metav1.ObjectMeta{}
-	_ = types.NamespacedName{}
-	_ = controllerutil.CreateOrUpdate
-	_ = corev1.ConfigMap{}
-	return ctrl.Result{}, nil
+	var cm corev1.ConfigMap
+	if err := r.Client.Get(ctx, req.NamespacedName, &cm); err != nil {
+		if apierrors.IsNotFound(err) {
+			return ctrl.Result{}, nil
+		}
+		return ctrl.Result{}, err
+	}
+
+	if !cm.DeletionTimestamp.IsZero() {
+		if controllerutil.ContainsFinalizer(&cm, SyncFinalizer) {
+			controllerutil.RemoveFinalizer(&cm, SyncFinalizer)
+			if err := r.Client.Update(ctx, &cm); err != nil {
+				return ctrl.Result{}, err
+			}
+		}
+		return ctrl.Result{}, nil
+	}
+
+	if !controllerutil.ContainsFinalizer(&cm, SyncFinalizer) {
+		controllerutil.AddFinalizer(&cm, SyncFinalizer)
+		if err := r.Client.Update(ctx, &cm); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+
+	mirror := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      cm.Name + "-mirror",
+			Namespace: cm.Namespace,
+		},
+	}
+	_, err := controllerutil.CreateOrUpdate(ctx, r.Client, mirror, func() error {
+		mirror.Data = maps.Clone(cm.Data)
+		return controllerutil.SetControllerReference(&cm, mirror, r.Scheme)
+	})
+	return ctrl.Result{}, err
 }
 
 // SetupWithManager registers ConfigSyncReconciler with the controller-runtime Manager,
 // watching primary ConfigMaps (For) and their owned mirror ConfigMaps (Owns).
 func (r *ConfigSyncReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	// TODO: Return ctrl.NewControllerManagedBy(mgr).For(&corev1.ConfigMap{}).Owns(&corev1.ConfigMap{}).Complete(r)
-	return nil
+	return ctrl.NewControllerManagedBy(mgr).
+		For(&corev1.ConfigMap{}).
+		Owns(&corev1.ConfigMap{}).
+		Complete(r)
 }

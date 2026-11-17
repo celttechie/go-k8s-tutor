@@ -36,20 +36,29 @@ type VirtualMachine struct {
 // client-go and controller-runtime code, API objects are almost always passed
 // as pointers (*VirtualMachine) so they satisfy client.Object and avoid copying.
 func NewVirtualMachine(name, namespace string, cpus int32, memory string) VirtualMachine {
-	// TODO: Implement this function.
-	// Hint: In Go, you can take the address of a local variable (&cpus) or use a helper.
-	return VirtualMachine{}
+	return VirtualMachine{
+		APIVersion: "kubevirt.io/v1",
+		Kind:       "VirtualMachine",
+		Metadata: ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Spec: VMSpec{
+			CPUs:   &cpus,
+			Memory: memory,
+		},
+	}
 }
 
 // EffectiveCPUs returns the configured CPU count, or defaultCPUs if Spec.CPUs is nil.
 func EffectiveCPUs(vm VirtualMachine, defaultCPUs int32) int32 {
-	// TODO: Safely dereference vm.Spec.CPUs if non-nil, otherwise return defaultCPUs.
-	return 0
+	if vm.Spec.CPUs != nil {
+		return *vm.Spec.CPUs
+	}
+	return defaultCPUs
 }
 
 // MarshalVM serializes a VirtualMachine to JSON bytes.
 func MarshalVM(vm VirtualMachine) ([]byte, error) {
-	// TODO: Use json.Marshal(vm) and return the result.
-	_ = json.Marshal
-	return nil, nil
+	return json.Marshal(vm)
 }
