@@ -17,10 +17,12 @@ Open this folder in your AI IDE. The included [`AGENTS.md`](./AGENTS.md) configu
 ### Option B: Solo Self-Study
 1. Read [`CURRICULUM.md`](./CURRICULUM.md) for the module-by-module roadmap and open-source code reading pointers.
 2. Work through `modules/01_*`, `modules/02_*`, etc.
-3. Run tests as you go:
+3. Run tests per module as you go:
    ```bash
-   go test ./modules/01_structs_pointers_tags/...
+   go test -v ./modules/01_structs_pointers_tags/...
    ```
+   > **Note:** Running `go test ./...` from the repository root will fail to compile Module 2 (`modules/02_interfaces_and_testing`) until you implement `GetName()` and `GetNamespace()` on `*SimpleVM`.
+4. If you get stuck and want to compare against reference implementations, check the `solutions` branch (`git checkout solutions` or view it on GitHub).
 
 ## Prerequisites
 * Go 1.26+ (`go version`)
